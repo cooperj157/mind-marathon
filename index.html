@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trivia Quest Board</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #5C3317;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: Georgia, 'Times New Roman', serif;
+      padding: 24px;
+    }
+    h1 {
+      color: #F5DEB3;
+      font-size: 2rem;
+      letter-spacing: 5px;
+      margin-bottom: 16px;
+      font-variant: small-caps;
+      text-shadow: 1px 2px 4px rgba(0,0,0,0.5);
+    }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 8px 28px;
+      margin-top: 14px;
+      background: #F4E4BC;
+      border: 2px solid #2C1810;
+      border-radius: 8px;
+      padding: 10px 28px;
+      width: 700px;
+      max-width: 100%;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #2C1810;
+      font-size: 0.82rem;
+      font-variant: small-caps;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .legend-swatch {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      border: 1.5px solid #2C181066;
+      flex-shrink: 0;
+    }
+
+    /* GO button states */
+    #go-group { cursor: pointer; }
+    #go-face   { transition: transform 0.08s ease; }
+    #go-shadow { transition: opacity 0.08s ease; }
+    #go-group:hover  #go-face   { transform: translateY(3px); }
+    #go-group:active #go-face   { transform: translateY(6px); }
+    #go-group:hover  #go-shadow { opacity: 0.5; }
+    #go-group:active #go-shadow { opacity: 0.2; }
+    #go-group:hover  #go-shine  { opacity: 0.25; }
+  </style>
+</head>
+<body>
+<h1>Mind Marathon</h1>
+<svg id="board" viewBox="0 0 700 700" width="700" height="700" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="legend" id="legend"></div>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('board');
+const CX = 350, CY = 350, STEP = 80;
+
+const cats = [
+  { name: 'Science',       emoji: '🔬', color: '#1565C0', light: '#4A90D9', angle: -Math.PI / 2 },
+  { name: 'History',       emoji: '📜', color: '#C8930A', light: '#E8B84B', angle: -Math.PI / 6 },
+  { name: 'Geography',     emoji: '🌍', color: '#1B5E20', light: '#4CAF50', angle:  Math.PI / 6 },
+  { name: 'Entertainment', emoji: '🎭', color: '#AD1457', light: '#E91E8C', angle:  Math.PI / 2 },
+  { name: 'Sports',        emoji: '⚾', color: '#BF360C', light: '#E8623A', angle:  5 * Math.PI / 6 },
+  { name: 'Art & Lit',     emoji: '🎨', color: '#4A148C', light: '#8E44AD', angle: -5 * Math.PI / 6 },
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function evenDeck() { return shuffle([...cats, ...cats]); }
+const spokeDeck = evenDeck();
+const ringDeck  = evenDeck();
+
+function pt(angle, dist) {
+  return [CX + dist * Math.cos(angle), CY + dist * Math.sin(angle)];
+}
+function make(tag, attrs, parent = svg) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function label(x, y, str, size, fill = '#2C1810', anchor = 'middle') {
+  const e = make('text', { x, y, 'font-size': size, fill, 'text-anchor': anchor,
+    'dominant-baseline': 'middle', 'font-family': 'Georgia, serif' });
+  e.textContent = str;
+  return e;
+}
+function diamond(cx, cy, r) {
+  return `${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}`;
+}
+function hexPoints(cx, cy, r, offset = 0) {
+  return Array.from({length:6}, (_,i) => {
+    const a = offset + i * Math.PI / 3;
+    return `${cx + r*Math.cos(a)},${cy + r*Math.sin(a)}`;
+  }).join(' ');
+}
+
+// ── Board background ─────────────────────────────────────────
+make('rect', { width:700, height:700, rx:12, fill:'#2C1810' });
+make('rect', { x:8,  y:8,  width:684, height:684, rx:8,  fill:'none', stroke:'#C8930A', 'stroke-width':2 });
+make('rect', { x:14, y:14, width:672, height:672, rx:6,  fill:'none', stroke:'#C8930A', 'stroke-width':1 });
+make('rect', { x:10, y:10, width:680, height:680, rx:7,  fill:'#F4E4BC' });
+[[18,18],[682,18],[18,682],[682,682]].forEach(([x,y]) =>
+  make('polygon', { points: diamond(x,y,6), fill:'#C8930A' })
+);
+
+// ── Spoke lines ───────────────────────────────────────────────
+cats.forEach(cat => {
+  const [bx, by] = pt(cat.angle, STEP * 3);
+  make('line', { x1:CX, y1:CY, x2:bx, y2:by,
+    stroke: cat.color+'55', 'stroke-width':5, 'stroke-linecap':'round' });
+});
+
+// ── Outer ring lines ──────────────────────────────────────────
+for (let i = 0; i < 6; i++) {
+  const [x1,y1] = pt(cats[i].angle, STEP*3);
+  const [x2,y2] = pt(cats[(i+1)%6].angle, STEP*3);
+  make('line', { x1, y1, x2, y2, stroke:'#2C181055', 'stroke-width':2.5 });
+}
+
+// ── Ring squares ──────────────────────────────────────────────
+let ringIdx = 0;
+for (let i = 0; i < 6; i++) {
+  const [x1,y1] = pt(cats[i].angle, STEP*3);
+  const [x2,y2] = pt(cats[(i+1)%6].angle, STEP*3);
+  [1/3, 2/3].forEach(t => {
+    const rx = x1+(x2-x1)*t, ry = y1+(y2-y1)*t;
+    const rc = ringDeck[ringIdx++];
+    make('polygon', { points: diamond(rx+2, ry+2, 17), fill:'#00000020', stroke:'none' });
+    make('polygon', { points: diamond(rx, ry, 17), fill: rc.color, stroke:'#2C1810', 'stroke-width':1.5 });
+    label(rx, ry, rc.emoji, 14, '#fff');
+  });
+}
+
+// ── Spoke squares ─────────────────────────────────────────────
+let spokeIdx = 0;
+cats.forEach(cat => {
+  [1, 2].forEach(d => {
+    const [sx, sy] = pt(cat.angle, STEP*d);
+    const sc = spokeDeck[spokeIdx++];
+    make('polygon', { points: diamond(sx+2, sy+2, 21), fill:'#00000020', stroke:'none' });
+    make('polygon', { points: diamond(sx, sy, 21), fill: sc.color, stroke:'#2C1810', 'stroke-width':1.5 });
+    label(sx, sy, sc.emoji, 16, '#fff');
+  });
+});
+
+// ── Boss hexagons ─────────────────────────────────────────────
+cats.forEach(cat => {
+  const [bx, by] = pt(cat.angle, STEP*3);
+  make('polygon', { points: hexPoints(bx+3, by+3, 32, Math.PI/6), fill:'#00000033', stroke:'none' });
+  make('polygon', { points: hexPoints(bx, by, 32, Math.PI/6), fill: cat.color, stroke:'#2C1810', 'stroke-width':2.5 });
+  make('polygon', { points: hexPoints(bx, by, 24, Math.PI/6), fill:'none', stroke:'#ffffff33', 'stroke-width':1.5 });
+  label(bx, by, cat.emoji, 24, '#fff');
+
+  // Category label — left/right side bosses go above or below hex,
+  // top/bottom bosses go outward. Always stays within safe board area.
+  const cosA = Math.cos(cat.angle);
+  const sinA = Math.sin(cat.angle);
+  let labelX, labelY;
+  if (Math.abs(cosA) > 0.5) {
+    // Left or right columns: place label above (upper half) or below (lower half)
+    labelX = bx;
+    labelY = sinA < 0 ? by - 50 : by + 50;
+  } else {
+    // Top / bottom: push straight outward
+    const [lx, ly] = pt(cat.angle, STEP * 3 + 52);
+    labelX = Math.max(60, Math.min(640, lx));
+    labelY = Math.max(22, Math.min(678, ly));
+  }
+  label(labelX, labelY, cat.name, 10.5, '#2C1810', 'middle');
+});
+
+// ── GO button (center hub) ────────────────────────────────────
+const goGroup = document.createElementNS(NS, 'g');
+goGroup.setAttribute('id', 'go-group');
+svg.appendChild(goGroup);
+
+// Raised button shadow (bottom layer — stays fixed)
+const goShadow = document.createElementNS(NS, 'circle');
+goShadow.setAttribute('id', 'go-shadow');
+goShadow.setAttribute('cx', CX + 2);
+goShadow.setAttribute('cy', CY + 7);
+goShadow.setAttribute('r', '46');
+goShadow.setAttribute('fill', '#0a3d0a');
+goShadow.setAttribute('opacity', '0.7');
+goGroup.appendChild(goShadow);
+
+// Face (the part that "presses") — wrapped in a group for translateY
+const goFace = document.createElementNS(NS, 'g');
+goFace.setAttribute('id', 'go-face');
+goGroup.appendChild(goFace);
+
+// Outer ring
+const goRing = document.createElementNS(NS, 'circle');
+goRing.setAttribute('cx', CX); goRing.setAttribute('cy', CY);
+goRing.setAttribute('r', '48');
+goRing.setAttribute('fill', '#145A32');
+goRing.setAttribute('stroke', '#0a3d0a');
+goRing.setAttribute('stroke-width', '2');
+goFace.appendChild(goRing);
+
+// Main green face
+const goMain = document.createElementNS(NS, 'circle');
+goMain.setAttribute('cx', CX); goMain.setAttribute('cy', CY);
+goMain.setAttribute('r', '43');
+goMain.setAttribute('fill', '#1E8449');
+goFace.appendChild(goMain);
+
+// Inner lighter ring accent
+const goInner = document.createElementNS(NS, 'circle');
+goInner.setAttribute('cx', CX); goInner.setAttribute('cy', CY);
+goInner.setAttribute('r', '37');
+goInner.setAttribute('fill', 'none');
+goInner.setAttribute('stroke', '#27AE6055');
+goInner.setAttribute('stroke-width', '2');
+goFace.appendChild(goInner);
+
+// Highlight shine (top-left arc)
+const goShine = document.createElementNS(NS, 'ellipse');
+goShine.setAttribute('id', 'go-shine');
+goShine.setAttribute('cx', CX - 10);
+goShine.setAttribute('cy', CY - 16);
+goShine.setAttribute('rx', '18');
+goShine.setAttribute('ry', '10');
+goShine.setAttribute('fill', '#fff');
+goShine.setAttribute('opacity', '0.15');
+goFace.appendChild(goShine);
+
+// Play triangle — offset 2px right for optical centering, stroke-linejoin rounds the corners
+const triCX = CX + 3;
+const playTri = document.createElementNS(NS, 'polygon');
+playTri.setAttribute('points', `${triCX + 23},${CY} ${triCX - 13},${CY - 22} ${triCX - 13},${CY + 22}`);
+playTri.setAttribute('fill', '#fff');
+playTri.setAttribute('stroke', '#fff');
+playTri.setAttribute('stroke-width', '10');
+playTri.setAttribute('stroke-linejoin', 'round');
+playTri.setAttribute('stroke-linecap', 'round');
+goFace.appendChild(playTri);
+
+// Click pulse animation
+goGroup.addEventListener('click', () => {
+  goFace.style.transform = 'translateY(6px)';
+  goShadow.style.opacity = '0.2';
+  setTimeout(() => {
+    goFace.style.transform = '';
+    goShadow.style.opacity = '0.7';
+  }, 150);
+});
+
+// ── Legend ────────────────────────────────────────────────────
+const legend = document.getElementById('legend');
+cats.forEach(cat => {
+  const d = document.createElement('div');
+  d.className = 'legend-item';
+  d.innerHTML = `<div class="legend-swatch" style="background:${cat.color}"></div><span>${cat.emoji} ${cat.name}</span>`;
+  legend.appendChild(d);
+});
+</script>
+</body>
+</html>
