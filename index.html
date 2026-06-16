@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Trivia Quest Board</title>
+  <title>Mind Marathon</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -91,7 +91,7 @@ function shuffle(arr) {
   return a;
 }
 function evenDeck() { return shuffle([...cats, ...cats]); }
-const spokeDeck = evenDeck();
+const spokeDeck = shuffle([...cats, ...cats, ...cats]);
 const ringDeck  = evenDeck();
 
 function pt(angle, dist) {
@@ -119,7 +119,7 @@ function hexPoints(cx, cy, r, offset = 0) {
   }).join(' ');
 }
 
-// ── Board background ─────────────────────────────────────────
+// ── Board background ──────────────────────────────────────────
 make('rect', { width:700, height:700, rx:12, fill:'#2C1810' });
 make('rect', { x:8,  y:8,  width:684, height:684, rx:8,  fill:'none', stroke:'#C8930A', 'stroke-width':2 });
 make('rect', { x:14, y:14, width:672, height:672, rx:6,  fill:'none', stroke:'#C8930A', 'stroke-width':1 });
@@ -142,7 +142,7 @@ for (let i = 0; i < 6; i++) {
   make('line', { x1, y1, x2, y2, stroke:'#2C181055', 'stroke-width':2.5 });
 }
 
-// ── Ring squares ──────────────────────────────────────────────
+// ── Ring squares (2 between each pair of checkpoints) ─────────
 let ringIdx = 0;
 for (let i = 0; i < 6; i++) {
   const [x1,y1] = pt(cats[i].angle, STEP*3);
@@ -156,7 +156,7 @@ for (let i = 0; i < 6; i++) {
   });
 }
 
-// ── Spoke squares ─────────────────────────────────────────────
+// ── Spoke squares (2 per spoke) ───────────────────────────────
 let spokeIdx = 0;
 cats.forEach(cat => {
   [1, 2].forEach(d => {
@@ -168,7 +168,7 @@ cats.forEach(cat => {
   });
 });
 
-// ── Boss hexagons ─────────────────────────────────────────────
+// ── Checkpoint hexagons ───────────────────────────────────────
 cats.forEach(cat => {
   const [bx, by] = pt(cat.angle, STEP*3);
   make('polygon', { points: hexPoints(bx+3, by+3, 32, Math.PI/6), fill:'#00000033', stroke:'none' });
@@ -176,17 +176,14 @@ cats.forEach(cat => {
   make('polygon', { points: hexPoints(bx, by, 24, Math.PI/6), fill:'none', stroke:'#ffffff33', 'stroke-width':1.5 });
   label(bx, by, cat.emoji, 24, '#fff');
 
-  // Category label — left/right side bosses go above or below hex,
-  // top/bottom bosses go outward. Always stays within safe board area.
+  // Category label positioning
   const cosA = Math.cos(cat.angle);
   const sinA = Math.sin(cat.angle);
   let labelX, labelY;
   if (Math.abs(cosA) > 0.5) {
-    // Left or right columns: place label above (upper half) or below (lower half)
     labelX = bx;
     labelY = sinA < 0 ? by - 50 : by + 50;
   } else {
-    // Top / bottom: push straight outward
     const [lx, ly] = pt(cat.angle, STEP * 3 + 52);
     labelX = Math.max(60, Math.min(640, lx));
     labelY = Math.max(22, Math.min(678, ly));
@@ -194,12 +191,11 @@ cats.forEach(cat => {
   label(labelX, labelY, cat.name, 10.5, '#2C1810', 'middle');
 });
 
-// ── GO button (center hub) ────────────────────────────────────
+// ── GO button ────────────────────────────────────────────────
 const goGroup = document.createElementNS(NS, 'g');
 goGroup.setAttribute('id', 'go-group');
 svg.appendChild(goGroup);
 
-// Raised button shadow (bottom layer — stays fixed)
 const goShadow = document.createElementNS(NS, 'circle');
 goShadow.setAttribute('id', 'go-shadow');
 goShadow.setAttribute('cx', CX + 2);
@@ -209,12 +205,10 @@ goShadow.setAttribute('fill', '#0a3d0a');
 goShadow.setAttribute('opacity', '0.7');
 goGroup.appendChild(goShadow);
 
-// Face (the part that "presses") — wrapped in a group for translateY
 const goFace = document.createElementNS(NS, 'g');
 goFace.setAttribute('id', 'go-face');
 goGroup.appendChild(goFace);
 
-// Outer ring
 const goRing = document.createElementNS(NS, 'circle');
 goRing.setAttribute('cx', CX); goRing.setAttribute('cy', CY);
 goRing.setAttribute('r', '48');
@@ -223,14 +217,12 @@ goRing.setAttribute('stroke', '#0a3d0a');
 goRing.setAttribute('stroke-width', '2');
 goFace.appendChild(goRing);
 
-// Main green face
 const goMain = document.createElementNS(NS, 'circle');
 goMain.setAttribute('cx', CX); goMain.setAttribute('cy', CY);
 goMain.setAttribute('r', '43');
 goMain.setAttribute('fill', '#1E8449');
 goFace.appendChild(goMain);
 
-// Inner lighter ring accent
 const goInner = document.createElementNS(NS, 'circle');
 goInner.setAttribute('cx', CX); goInner.setAttribute('cy', CY);
 goInner.setAttribute('r', '37');
@@ -239,7 +231,6 @@ goInner.setAttribute('stroke', '#27AE6055');
 goInner.setAttribute('stroke-width', '2');
 goFace.appendChild(goInner);
 
-// Highlight shine (top-left arc)
 const goShine = document.createElementNS(NS, 'ellipse');
 goShine.setAttribute('id', 'go-shine');
 goShine.setAttribute('cx', CX - 10);
@@ -250,7 +241,6 @@ goShine.setAttribute('fill', '#fff');
 goShine.setAttribute('opacity', '0.15');
 goFace.appendChild(goShine);
 
-// Play triangle — offset 2px right for optical centering, stroke-linejoin rounds the corners
 const triCX = CX + 3;
 const playTri = document.createElementNS(NS, 'polygon');
 playTri.setAttribute('points', `${triCX + 23},${CY} ${triCX - 13},${CY - 22} ${triCX - 13},${CY + 22}`);
@@ -261,7 +251,6 @@ playTri.setAttribute('stroke-linejoin', 'round');
 playTri.setAttribute('stroke-linecap', 'round');
 goFace.appendChild(playTri);
 
-// Click pulse animation
 goGroup.addEventListener('click', () => {
   goFace.style.transform = 'translateY(6px)';
   goShadow.style.opacity = '0.2';
